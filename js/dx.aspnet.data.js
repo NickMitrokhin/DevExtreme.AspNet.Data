@@ -9,11 +9,43 @@
 
     if(typeof define === "function" && define.amd) {
         define(function(require, exports, module) {
-            module.exports = factory(
-                require("jquery"),
-                require("devextreme/data/custom_store"),
-                require("devextreme/data/utils")
-            );
+            function getUtils() {
+                var result = {};
+                arguments.forEach(function(arg) {
+                    for (var prop in arg) {
+                        result[prop] = arg[prop];
+                    }
+                });
+                return result;
+            }
+            var modules = ["devextreme/data/custom_store", "devextreme/data/utils"], 
+                fs = require("fs"); 
+            if (fs.existsAsync("jquery.js")) {
+                modules.push("jquery");
+            }
+            else {
+                modules.push("devextreme/core/utils/extend", "devextreme/core/utils/ajax", "devextreme/core/utils/deferred");
+            }
+            require(modules, function() {
+                var utils;
+                if (arguments.length > 3) {
+                    utils = {};
+                    for (var i = 3; i < arguments.length; i++) {
+                        var arg = arguments[i];
+                        for (var prop in arg) {
+                            utils[prop] = arg[prop];
+                        }
+                    }
+                }                
+                else {
+                    utils = arguments[2];
+                }
+                module.exports = factory(
+                    utils,
+                    arguments[0],
+                    arguments[1]                    
+                );   
+            });                                    
         });
     } else {
         DevExpress.data.AspNet = factory(
@@ -52,8 +84,9 @@
 
                 if(onBeforeSend)
                     onBeforeSend(operation, ajaxSettings);
-
-                $.ajax(ajaxSettings)
+                
+                var sendRequest = $.ajax || $.sendRequest;
+                sendRequest.call($, ajaxSettings)
                     .done(function(res) {
                         if(customSuccessHandler)
                             customSuccessHandler(d, res);
@@ -73,10 +106,10 @@
         }
 
         function filterByKey(keyValue) {
-            if(!$.isArray(keyExpr))
+            if(!Array.isArray(keyExpr))
                 return [keyExpr, keyValue];
 
-            return $.map(keyExpr, function(i) {
+            return keyExpr.map(function(i) {
                 return [[i, keyValue[i]]];
             });
         }
@@ -89,9 +122,9 @@
 
             if(options) {
 
-                $.each(["skip", "take", "requireTotalCount", "requireGroupCount"], function() {
-                    if(this in options)
-                        result[this] = options[this];
+                ["skip", "take", "requireTotalCount", "requireGroupCount"].forEach(function(item) {
+                    if(item in options)
+                        result[item] = options[item];
                 });
 
                 var normalizeSorting = dataUtils.normalizeSortingInfo,
@@ -108,7 +141,7 @@
                     result.group = JSON.stringify(group);
                 }
 
-                if($.isArray(filter)) {
+                if(Array.isArray(filter)) {
                     filter = $.extend(true, [], filter);
                     stringifyDatesInFilter(filter);
                     result.filter = JSON.stringify(filter);
@@ -121,7 +154,7 @@
                     result.groupSummary = JSON.stringify(options.groupSummary);
 
                 if(select) {
-                    if(!$.isArray(select))
+                    if(!Array.isArray(select))
                         select = [ select ];
                     result.select = JSON.stringify(select);
                 }
@@ -223,7 +256,7 @@
     }
 
     function expandLoadResponse(value) {
-        if($.isArray(value))
+        if(Array.isArray(value))
             return { data: value };
 
         if(typeof value === "number")
@@ -269,7 +302,7 @@
     }
 
     function stringifyDatesInFilter(crit) {
-        $.each(crit, function(k, v) {
+        crit.forEach(function(v, k) {
             switch($.type(v)) {
                 case "array":
                     stringifyDatesInFilter(v);
@@ -282,7 +315,7 @@
     }
 
     function isAdvancedGrouping(expr) {
-        if(!$.isArray(expr))
+        if(!Array.isArray(expr))
             return false;
 
         for(var i = 0; i < expr.length; i++) {
